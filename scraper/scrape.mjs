@@ -119,8 +119,10 @@ async function searchAllFilms(csrf) {
 
 // ── Step 3: Fetch individual event details ──────────────────────────
 
-async function fetchEventDetail(eventId) {
-  const url = `${BASE_URL}/api/web/${YEAR}/events/${eventId}`;
+async function fetchEventDetail(eventId, isFilm = false) {
+  // Films use a different endpoint than events
+  const type = isFilm ? 'films' : 'events';
+  const url = `${BASE_URL}/api/web/${YEAR}/${type}/${eventId}`;
   const res = await fetch(url, {
     headers: {
       'Accept': 'application/json',
@@ -131,13 +133,13 @@ async function fetchEventDetail(eventId) {
   return res.json();
 }
 
-async function fetchDetailsBatch(eventIds, onProgress) {
+async function fetchDetailsBatch(eventIds, filmIds, onProgress) {
   const results = {};
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batch = eventIds.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (id) => {
       try {
-        const detail = await fetchEventDetail(id);
+        const detail = await fetchEventDetail(id, filmIds.has(id));
         if (detail) results[id] = detail;
       } catch (err) {
         log(`  Warning: failed to fetch ${id}: ${err.message}`);
@@ -152,29 +154,57 @@ async function fetchDetailsBatch(eventIds, onProgress) {
 
 // ── Step 4: Build normalized event records ──────────────────────────
 
-function normalizeEvent(hit, detail) {
+function normalizeEvent(hit, detail, isFilm = false) {
   const src = hit._source;
   const d = detail || {};
 
+  // Films store screening info differently — use first screening for date/venue
+  let date = src.date || '';
+  let startTime = src.start_time || '';
+  let endTime = src.end_time || '';
+  let venue = src.venue?.name || d.venue?.name || '';
+  let venueAddress = d.venue?.address || '';
+  let venueId = src.venue?.id || '';
+
+  if (isFilm && d.screenings?.length > 0) {
+    const s = d.screenings[0];
+    date = date || s.date || '';
+    startTime = startTime || s.start_time || '';
+    endTime = endTime || s.end_time || '';
+    venue = venue || s.venue?.name || '';
+    venueAddress = venueAddress || s.venue?.address || '';
+    venueId = venueId || s.venue?.id || '';
+  }
+
+  // For films, also pull directors/cast as speakers
+  const speakers = (d.contributors || src.panelists || []).map(p => ({
+    name: p.name || '',
+    title: p.title || p.role || '',
+    company: p.company || '',
+  }));
+  if (isFilm && d.directors) {
+    for (const dir of d.directors) {
+      if (dir.name && !speakers.some(s => s.name === dir.name)) {
+        speakers.push({ name: dir.name, title: 'Director', company: '' });
+      }
+    }
+  }
+
   return {
     id: hit._id,
-    title: src.name || d.name || '',
-    description: d.description || d.long_description || src.description || '',
-    date: src.date || '',
-    start_time: src.start_time || '',
-    end_time: src.end_time || '',
-    venue: src.venue?.name || d.venue?.name || '',
-    venue_address: d.venue?.address || '',
-    venue_id: src.venue?.id || '',
+    title: src.name || d.name || d.title || '',
+    description: d.description || d.long_description || d.synopsis || src.description || '',
+    date,
+    start_time: startTime,
+    end_time: endTime,
+    venue,
+    venue_address: venueAddress,
+    venue_id: venueId,
     track: d.track || src.theme || '',
     tags: d.tags || src.tags || [],
-    format: src.format || d.format || '',
-    event_type: src.event_type || d.event_type || '',
-    speakers: (d.contributors || src.panelists || []).map(p => ({
-      name: p.name || '',
-      title: p.title || '',
-      company: p.company || '',
-    })),
+    format: src.format || d.format || (isFilm ? 'Film Screening' : ''),
+    event_type: src.event_type || d.event_type || (isFilm ? 'Screening' : ''),
+    speakers,
     credential_types: src.credential_types || [],
     experience_level: d.experience_level || '',
     url: `https://schedule.sxsw.com/${YEAR}/events/${hit._id}`,
@@ -264,10 +294,12 @@ async function main() {
 
   // Extract event IDs for detail fetching
   const eventIds = allHits.map(h => h._id);
+  const filmIdSet = new Set((filmData.hits || []).map(h => h._id));
+  log(`Film IDs: ${filmIdSet.size}`);
 
   // Fetch details for all events
   log('Fetching event details...');
-  const details = await fetchDetailsBatch(eventIds, (done, total) => {
+  const details = await fetchDetailsBatch(eventIds, filmIdSet, (done, total) => {
     if (done % 100 === 0 || done === total) {
       log(`  Progress: ${done}/${total} details fetched`);
     }
@@ -275,7 +307,7 @@ async function main() {
 
   // Normalize events
   log('Normalizing event records...');
-  const events = allHits.map(hit => normalizeEvent(hit, details[hit._id]));
+  const events = allHits.map(hit => normalizeEvent(hit, details[hit._id], filmIdSet.has(hit._id)));
 
   // Sort by date and start time
   events.sort((a, b) => {
