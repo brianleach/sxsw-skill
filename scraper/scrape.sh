@@ -11,7 +11,7 @@ echo "Starting SXSW 2026 schedule scrape..."
 echo "Output directory: $SCRIPT_DIR/output/"
 echo ""
 
-node scrape.mjs
+node scrape.ts
 
 echo ""
 echo "Done. Files written:"

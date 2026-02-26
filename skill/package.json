@@ -2,7 +2,7 @@
   "name": "sxsw-2026",
   "version": "1.0.0",
   "description": "SXSW 2026 schedule lookup, event search, speaker info, and recommendations for the March 12-18 conference and festivals in Austin, TX.",
-  "main": "scripts/sxsw.mjs",
+  "main": "scripts/sxsw.ts",
   "type": "module",
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0"

@@ -10,7 +10,7 @@ metadata:
     requires:
       bins: ["node"]
       env: []
-    files: ["scripts/sxsw.mjs"]
+    files: ["scripts/sxsw.ts"]
     install: []
 ---
 
@@ -52,34 +52,34 @@ Supplement the local dataset with web search when:
 ### Quick Start
 
 ```bash
-node scripts/sxsw.mjs info           # dataset overview
-node scripts/sxsw.mjs today          # today's events
-node scripts/sxsw.mjs recommend      # keynotes & featured sessions
+node scripts/sxsw.ts info           # dataset overview
+node scripts/sxsw.ts today          # today's events
+node scripts/sxsw.ts recommend      # keynotes & featured sessions
 ```
 
 ### Script Usage
 
-The CLI at `scripts/sxsw.mjs` supports these commands:
+The CLI at `scripts/sxsw.ts` supports these commands:
 
 ```bash
 # List/filter events
-node scripts/sxsw.mjs events --date 2026-03-14
-node scripts/sxsw.mjs events --track "AI"
-node scripts/sxsw.mjs events --venue "JW Marriott"
-node scripts/sxsw.mjs events --format "keynote"
-node scripts/sxsw.mjs events --search "machine learning"
-node scripts/sxsw.mjs events --search "climate" --date 2026-03-15 --verbose
+node scripts/sxsw.ts events --date 2026-03-14
+node scripts/sxsw.ts events --track "AI"
+node scripts/sxsw.ts events --venue "JW Marriott"
+node scripts/sxsw.ts events --format "keynote"
+node scripts/sxsw.ts events --search "machine learning"
+node scripts/sxsw.ts events --search "climate" --date 2026-03-15 --verbose
 
 # Speaker search
-node scripts/sxsw.mjs speakers --search "Amy Webb"
+node scripts/sxsw.ts speakers --search "Amy Webb"
 
 # Browse
-node scripts/sxsw.mjs venues
-node scripts/sxsw.mjs tracks
-node scripts/sxsw.mjs today
-node scripts/sxsw.mjs tomorrow
-node scripts/sxsw.mjs recommend
-node scripts/sxsw.mjs info
+node scripts/sxsw.ts venues
+node scripts/sxsw.ts tracks
+node scripts/sxsw.ts today
+node scripts/sxsw.ts tomorrow
+node scripts/sxsw.ts recommend
+node scripts/sxsw.ts info
 ```
 
 Filters can be combined. Add `--verbose` for descriptions and speaker details. Add `--limit N` to cap results.

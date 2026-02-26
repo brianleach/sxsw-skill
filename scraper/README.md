@@ -20,7 +20,7 @@ chmod +x scrape.sh
 Or directly:
 
 ```bash
-node scraper/scrape.mjs
+node scraper/scrape.ts
 ```
 
 No dependencies beyond Node.js 18+ (uses built-in `fetch`).

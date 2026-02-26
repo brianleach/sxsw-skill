@@ -21,28 +21,94 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const SCHEDULE_FILE = path.join(DATA_DIR, 'sxsw-2026-schedule.json');
 const INDEX_FILE = path.join(DATA_DIR, 'sxsw-2026-index.json');
 
+// ── Interfaces ─────────────────────────────────────────────────────
+
+interface Speaker {
+  name: string;
+  title: string;
+  company: string;
+}
+
+interface SXSWEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  venue: string;
+  venue_address: string;
+  venue_id: string;
+  track: string;
+  tags: string[];
+  format: string;
+  event_type: string;
+  speakers: Speaker[];
+  credential_types: string[];
+  experience_level: string;
+  url: string;
+  thumbnail_url: string;
+}
+
+interface Schedule {
+  scraped_at: string;
+  event_count: number;
+  date_range: { start: string; end: string };
+  events: SXSWEvent[];
+}
+
+interface SearchIndex {
+  byDate: Record<string, string[]>;
+  byTrack: Record<string, string[]>;
+  byVenue: Record<string, string[]>;
+  byFormat: Record<string, string[]>;
+  byType: Record<string, string[]>;
+  bySpeaker: Record<string, string[]>;
+  keywords: Record<string, string[]>;
+  scraped_at?: string;
+  event_count?: number;
+  aggregations?: Record<string, { key: string; count: number }[]>;
+}
+
+interface EventFilterOptions {
+  date?: string;
+  track?: string;
+  venue?: string;
+  format?: string;
+  search?: string;
+  verbose?: boolean;
+  limit?: string;
+  help?: boolean;
+}
+
+interface PrintOptions {
+  title?: string;
+  verbose?: boolean;
+  limit?: number;
+}
+
 // ── Data loading ────────────────────────────────────────────────────
 
-let _schedule = null;
-let _index = null;
+let _schedule: Schedule | null = null;
+let _index: SearchIndex | null = null;
 
-function loadSchedule() {
+function loadSchedule(): Schedule {
   if (!_schedule) {
     _schedule = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
   }
-  return _schedule;
+  return _schedule!;
 }
 
-function loadIndex() {
+function loadIndex(): SearchIndex {
   if (!_index) {
     _index = JSON.parse(fs.readFileSync(INDEX_FILE, 'utf8'));
   }
-  return _index;
+  return _index!;
 }
 
-function getEventsMap() {
+function getEventsMap(): Map<string, SXSWEvent> {
   const schedule = loadSchedule();
-  const map = new Map();
+  const map = new Map<string, SXSWEvent>();
   for (const evt of schedule.events) {
     map.set(evt.id, evt);
   }
@@ -51,7 +117,7 @@ function getEventsMap() {
 
 // ── Time utilities ──────────────────────────────────────────────────
 
-function fmtTime(isoStr) {
+function fmtTime(isoStr: string): string {
   if (!isoStr) return '';
   const d = new Date(isoStr);
   return d.toLocaleTimeString('en-US', {
@@ -62,7 +128,7 @@ function fmtTime(isoStr) {
   });
 }
 
-function fmtDate(dateStr) {
+function fmtDate(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-US', {
@@ -72,7 +138,7 @@ function fmtDate(dateStr) {
   });
 }
 
-function fmtDateLong(dateStr) {
+function fmtDateLong(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-US', {
@@ -83,11 +149,11 @@ function fmtDateLong(dateStr) {
   });
 }
 
-function getTodayCST() {
+function getTodayCST(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
 }
 
-function getTomorrowCST() {
+function getTomorrowCST(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
@@ -95,7 +161,7 @@ function getTomorrowCST() {
 
 // ── Formatters ──────────────────────────────────────────────────────
 
-function fmtEvent(evt, verbose = false) {
+function fmtEvent(evt: SXSWEvent, verbose: boolean = false): string {
   const time = evt.start_time ? fmtTime(evt.start_time) : 'TBD';
   const end = evt.end_time ? ` - ${fmtTime(evt.end_time)}` : '';
   const venue = evt.venue ? ` @ ${evt.venue}` : '';
@@ -126,7 +192,7 @@ function fmtEvent(evt, verbose = false) {
   return line;
 }
 
-function printEvents(events, { title, verbose = false, limit = 0 } = {}) {
+function printEvents(events: SXSWEvent[], { title, verbose = false, limit = 0 }: PrintOptions = {}): void {
   if (title) console.log(`\n${title}`);
 
   const schedule = loadSchedule();
@@ -141,11 +207,11 @@ function printEvents(events, { title, verbose = false, limit = 0 } = {}) {
   console.log(`\nShowing ${display.length} of ${events.length} events:\n`);
 
   // Group by date
-  const byDate = new Map();
+  const byDate = new Map<string, SXSWEvent[]>();
   for (const evt of display) {
     const date = evt.date || 'Date TBD';
     if (!byDate.has(date)) byDate.set(date, []);
-    byDate.get(date).push(evt);
+    byDate.get(date)!.push(evt);
   }
 
   for (const [date, evts] of byDate) {
@@ -160,14 +226,14 @@ function printEvents(events, { title, verbose = false, limit = 0 } = {}) {
 
 // ── Resolvers ───────────────────────────────────────────────────────
 
-function resolveIds(ids) {
+function resolveIds(ids: string[]): SXSWEvent[] {
   const eventsMap = getEventsMap();
-  return ids.map(id => eventsMap.get(id)).filter(Boolean);
+  return ids.map(id => eventsMap.get(id)).filter(Boolean) as SXSWEvent[];
 }
 
 // ── Commands ────────────────────────────────────────────────────────
 
-function cmdEvents(opts) {
+function cmdEvents(opts: EventFilterOptions): void {
   const schedule = loadSchedule();
   const index = loadIndex();
   let events = schedule.events;
@@ -186,7 +252,7 @@ function cmdEvents(opts) {
   // Filter by track/category
   if (opts.track) {
     const q = opts.track.toLowerCase();
-    const matchedIds = new Set();
+    const matchedIds = new Set<string>();
     for (const [track, ids] of Object.entries(index.byTrack)) {
       if (track.toLowerCase().includes(q)) {
         for (const id of ids) matchedIds.add(id);
@@ -205,7 +271,7 @@ function cmdEvents(opts) {
   // Filter by venue
   if (opts.venue) {
     const q = opts.venue.toLowerCase();
-    const matchedIds = new Set();
+    const matchedIds = new Set<string>();
     for (const [venue, ids] of Object.entries(index.byVenue)) {
       if (venue.toLowerCase().includes(q)) {
         for (const id of ids) matchedIds.add(id);
@@ -221,7 +287,7 @@ function cmdEvents(opts) {
   // Filter by format
   if (opts.format) {
     const q = opts.format.toLowerCase();
-    const matchedIds = new Set();
+    const matchedIds = new Set<string>();
     for (const [fmt, ids] of Object.entries(index.byFormat)) {
       if (fmt.toLowerCase().includes(q)) {
         for (const id of ids) matchedIds.add(id);
@@ -240,17 +306,18 @@ function cmdEvents(opts) {
     if (words.length > 0) {
       const keywords = index.keywords;
       // Intersect results for all search words
-      let matchedIds = null;
+      let matchedIds: Set<string> | null = null;
       for (const w of words) {
         const ids = new Set(keywords[w] || []);
         if (matchedIds === null) {
           matchedIds = ids;
         } else {
-          matchedIds = new Set([...matchedIds].filter(id => ids.has(id)));
+          const prev: Set<string> = matchedIds;
+          matchedIds = new Set([...prev].filter(id => ids.has(id)));
         }
       }
       if (matchedIds && matchedIds.size > 0) {
-        events = events.filter(e => matchedIds.has(e.id));
+        events = events.filter(e => matchedIds!.has(e.id));
       } else {
         // Fallback: brute-force search
         const q = opts.search.toLowerCase();
@@ -264,7 +331,7 @@ function cmdEvents(opts) {
     }
   }
 
-  const filters = [];
+  const filters: string[] = [];
   if (opts.date) filters.push(`date=${opts.date}`);
   if (opts.track) filters.push(`track="${opts.track}"`);
   if (opts.venue) filters.push(`venue="${opts.venue}"`);
@@ -278,13 +345,13 @@ function cmdEvents(opts) {
   printEvents(events, { title, verbose: opts.verbose, limit: opts.limit ? parseInt(opts.limit) : 0 });
 }
 
-function cmdSpeakers(opts) {
+function cmdSpeakers(opts: EventFilterOptions): void {
   const index = loadIndex();
 
   if (opts.search) {
     const q = opts.search.toLowerCase();
-    const matchedIds = new Set();
-    const matchedSpeakers = [];
+    const matchedIds = new Set<string>();
+    const matchedSpeakers: string[] = [];
 
     for (const [name, ids] of Object.entries(index.bySpeaker)) {
       if (name.toLowerCase().includes(q)) {
@@ -321,7 +388,7 @@ function cmdSpeakers(opts) {
   }
 }
 
-function cmdVenues() {
+function cmdVenues(): void {
   const index = loadIndex();
   const venues = Object.entries(index.byVenue)
     .sort((a, b) => b[1].length - a[1].length);
@@ -332,7 +399,7 @@ function cmdVenues() {
   }
 }
 
-function cmdTracks() {
+function cmdTracks(): void {
   const index = loadIndex();
   // Use aggregation data if available, otherwise fall back to index
   if (index.aggregations?.theme) {
@@ -352,19 +419,19 @@ function cmdTracks() {
   }
 }
 
-function cmdToday() {
+function cmdToday(): void {
   const today = getTodayCST();
   console.log(`\nToday is ${fmtDateLong(today)} (Austin time)`);
   cmdEvents({ date: today, verbose: false });
 }
 
-function cmdTomorrow() {
+function cmdTomorrow(): void {
   const tomorrow = getTomorrowCST();
   console.log(`\nTomorrow is ${fmtDateLong(tomorrow)} (Austin time)`);
   cmdEvents({ date: tomorrow, verbose: false });
 }
 
-function cmdRecommend() {
+function cmdRecommend(): void {
   const schedule = loadSchedule();
   const index = loadIndex();
 
@@ -396,7 +463,7 @@ function cmdRecommend() {
   }
 }
 
-function cmdInfo() {
+function cmdInfo(): void {
   const schedule = loadSchedule();
   const index = loadIndex();
 
@@ -428,7 +495,7 @@ const USAGE = `
 SXSW 2026 Schedule CLI
 
 Usage:
-  sxsw.mjs <command> [options]
+  sxsw.ts <command> [options]
 
 Commands:
   events      List/search events
@@ -453,15 +520,15 @@ Speakers options:
   --search <name>       Search for a speaker by name
 
 Examples:
-  sxsw.mjs events --date 2026-03-14
-  sxsw.mjs events --track "AI" --verbose
-  sxsw.mjs events --search "machine learning"
-  sxsw.mjs speakers --search "Amy Webb"
-  sxsw.mjs today
-  sxsw.mjs recommend
+  sxsw.ts events --date 2026-03-14
+  sxsw.ts events --track "AI" --verbose
+  sxsw.ts events --search "machine learning"
+  sxsw.ts speakers --search "Amy Webb"
+  sxsw.ts today
+  sxsw.ts recommend
 `.trim();
 
-function main() {
+function main(): void {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -483,7 +550,7 @@ function main() {
     process.exit(0);
   }
 
-  const handlers = {
+  const handlers: Record<string, () => void> = {
     events: () => cmdEvents(values),
     speakers: () => cmdSpeakers(values),
     venues: () => cmdVenues(),
@@ -505,6 +572,6 @@ function main() {
 }
 
 Promise.resolve().then(main).catch(err => {
-  console.error(`Error: ${err.message}`);
+  console.error(`Error: ${(err as Error).message}`);
   process.exit(1);
 });

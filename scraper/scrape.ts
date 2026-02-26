@@ -33,19 +33,139 @@ const YEAR = '2026';
 const DELAY_MS = 150; // delay between detail requests
 const BATCH_SIZE = 10; // concurrent detail fetches per batch
 
+// ── Interfaces ─────────────────────────────────────────────────────
+
+interface CSRFCredentials {
+  token: string;
+  cookies: string;
+}
+
+interface SearchHitSource {
+  name?: string;
+  description?: string;
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+  venue?: { id?: string; name?: string };
+  theme?: string;
+  tags?: string[];
+  format?: string;
+  event_type?: string;
+  panelists?: { name?: string; title?: string; role?: string; company?: string }[];
+  credential_types?: string[];
+  thumbnail_url?: string;
+}
+
+interface SearchHit {
+  _id: string;
+  _source: SearchHitSource;
+}
+
+interface AggregationBucket {
+  key: string;
+  doc_count: number;
+}
+
+interface Aggregation {
+  name: string;
+  buckets: AggregationBucket[];
+}
+
+interface SearchResponse {
+  hits?: SearchHit[];
+  aggregations?: Aggregation[];
+}
+
+interface EventDetailVenue {
+  name?: string;
+  address?: string;
+  id?: string;
+}
+
+interface EventDetailScreening {
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+  venue?: EventDetailVenue;
+}
+
+interface EventDetailContributor {
+  name?: string;
+  title?: string;
+  role?: string;
+  company?: string;
+}
+
+interface EventDetail {
+  name?: string;
+  title?: string;
+  description?: string;
+  long_description?: string;
+  synopsis?: string;
+  venue?: EventDetailVenue;
+  track?: string;
+  tags?: string[];
+  format?: string;
+  event_type?: string;
+  experience_level?: string;
+  contributors?: EventDetailContributor[];
+  directors?: { name?: string }[];
+  screenings?: EventDetailScreening[];
+}
+
+interface Speaker {
+  name: string;
+  title: string;
+  company: string;
+}
+
+interface NormalizedEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  venue: string;
+  venue_address: string;
+  venue_id: string;
+  track: string;
+  tags: string[];
+  format: string;
+  event_type: string;
+  speakers: Speaker[];
+  credential_types: string[];
+  experience_level: string;
+  url: string;
+  thumbnail_url: string;
+}
+
+interface SearchIndex {
+  byDate: Record<string, string[]>;
+  byTrack: Record<string, string[]>;
+  byVenue: Record<string, string[]>;
+  byFormat: Record<string, string[]>;
+  byType: Record<string, string[]>;
+  bySpeaker: Record<string, string[]>;
+  keywords: Record<string, string[]>;
+  scraped_at?: string;
+  event_count?: number;
+  aggregations?: Record<string, { key: string; count: number }[]>;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function log(msg) {
+function log(msg: string): void {
   process.stderr.write(`[scraper] ${msg}\n`);
 }
 
 // ── Step 1: Get CSRF token and cookies ──────────────────────────────
 
-async function getCSRFToken() {
+async function getCSRFToken(): Promise<CSRFCredentials> {
   log('Fetching CSRF token...');
   const res = await fetch(`${BASE_URL}/${YEAR}`, {
     headers: {
@@ -65,7 +185,7 @@ async function getCSRFToken() {
 
 // ── Step 2: Search for all events ───────────────────────────────────
 
-async function searchAllEvents(csrf) {
+async function searchAllEvents(csrf: CSRFCredentials): Promise<SearchResponse> {
   log('Searching for all events...');
   const res = await fetch(`${BASE_URL}/${YEAR}/search`, {
     method: 'POST',
@@ -86,12 +206,12 @@ async function searchAllEvents(csrf) {
   });
 
   if (!res.ok) throw new Error(`Search failed: ${res.status} ${res.statusText}`);
-  const data = await res.json();
+  const data: SearchResponse = await res.json();
   log(`Found ${data.hits?.length || 0} events`);
   return data;
 }
 
-async function searchAllFilms(csrf) {
+async function searchAllFilms(csrf: CSRFCredentials): Promise<SearchResponse> {
   log('Searching for all films...');
   const res = await fetch(`${BASE_URL}/${YEAR}/search`, {
     method: 'POST',
@@ -112,14 +232,14 @@ async function searchAllFilms(csrf) {
   });
 
   if (!res.ok) throw new Error(`Film search failed: ${res.status} ${res.statusText}`);
-  const data = await res.json();
+  const data: SearchResponse = await res.json();
   log(`Found ${data.hits?.length || 0} films`);
   return data;
 }
 
 // ── Step 3: Fetch individual event details ──────────────────────────
 
-async function fetchEventDetail(eventId, isFilm = false) {
+async function fetchEventDetail(eventId: string, isFilm: boolean = false): Promise<EventDetail | null> {
   // Films use a different endpoint than events
   const type = isFilm ? 'films' : 'events';
   const url = `${BASE_URL}/api/web/${YEAR}/${type}/${eventId}`;
@@ -133,8 +253,12 @@ async function fetchEventDetail(eventId, isFilm = false) {
   return res.json();
 }
 
-async function fetchDetailsBatch(eventIds, filmIds, onProgress) {
-  const results = {};
+async function fetchDetailsBatch(
+  eventIds: string[],
+  filmIds: Set<string>,
+  onProgress: (done: number, total: number) => void,
+): Promise<Record<string, EventDetail>> {
+  const results: Record<string, EventDetail> = {};
   for (let i = 0; i < eventIds.length; i += BATCH_SIZE) {
     const batch = eventIds.slice(i, i + BATCH_SIZE);
     const promises = batch.map(async (id) => {
@@ -142,7 +266,7 @@ async function fetchDetailsBatch(eventIds, filmIds, onProgress) {
         const detail = await fetchEventDetail(id, filmIds.has(id));
         if (detail) results[id] = detail;
       } catch (err) {
-        log(`  Warning: failed to fetch ${id}: ${err.message}`);
+        log(`  Warning: failed to fetch ${id}: ${(err as Error).message}`);
       }
     });
     await Promise.all(promises);
@@ -154,9 +278,9 @@ async function fetchDetailsBatch(eventIds, filmIds, onProgress) {
 
 // ── Step 4: Build normalized event records ──────────────────────────
 
-function normalizeEvent(hit, detail, isFilm = false) {
+function normalizeEvent(hit: SearchHit, detail: EventDetail | undefined, isFilm: boolean = false): NormalizedEvent {
   const src = hit._source;
-  const d = detail || {};
+  const d: EventDetail = detail || {};
 
   // Films store screening info differently — use first screening for date/venue
   let date = src.date || '';
@@ -166,7 +290,7 @@ function normalizeEvent(hit, detail, isFilm = false) {
   let venueAddress = d.venue?.address || '';
   let venueId = src.venue?.id || '';
 
-  if (isFilm && d.screenings?.length > 0) {
+  if (isFilm && d.screenings?.length && d.screenings.length > 0) {
     const s = d.screenings[0];
     date = date || s.date || '';
     startTime = startTime || s.start_time || '';
@@ -177,7 +301,7 @@ function normalizeEvent(hit, detail, isFilm = false) {
   }
 
   // For films, also pull directors/cast as speakers
-  const speakers = (d.contributors || src.panelists || []).map(p => ({
+  const speakers: Speaker[] = (d.contributors || src.panelists || []).map(p => ({
     name: p.name || '',
     title: p.title || p.role || '',
     company: p.company || '',
@@ -214,14 +338,14 @@ function normalizeEvent(hit, detail, isFilm = false) {
 
 // ── Step 5: Build search index ──────────────────────────────────────
 
-function buildIndex(events) {
-  const byDate = {};
-  const byTrack = {};
-  const byVenue = {};
-  const byFormat = {};
-  const byType = {};
-  const bySpeaker = {};
-  const keywords = {};
+function buildIndex(events: NormalizedEvent[]): SearchIndex {
+  const byDate: Record<string, string[]> = {};
+  const byTrack: Record<string, string[]> = {};
+  const byVenue: Record<string, string[]> = {};
+  const byFormat: Record<string, string[]> = {};
+  const byType: Record<string, string[]> = {};
+  const bySpeaker: Record<string, string[]> = {};
+  const keywords: Record<string, Set<string>> = {};
 
   for (const evt of events) {
     // By date
@@ -268,16 +392,17 @@ function buildIndex(events) {
   }
 
   // Convert sets to arrays
+  const keywordsArr: Record<string, string[]> = {};
   for (const w of Object.keys(keywords)) {
-    keywords[w] = [...keywords[w]];
+    keywordsArr[w] = [...keywords[w]];
   }
 
-  return { byDate, byTrack, byVenue, byFormat, byType, bySpeaker, keywords };
+  return { byDate, byTrack, byVenue, byFormat, byType, bySpeaker, keywords: keywordsArr };
 }
 
 // ── Main ────────────────────────────────────────────────────────────
 
-async function main() {
+async function main(): Promise<void> {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   // Get CSRF credentials
@@ -332,7 +457,7 @@ async function main() {
 
   // Build and write index
   log('Building search index...');
-  const index = buildIndex(events);
+  const index: SearchIndex = buildIndex(events);
   index.scraped_at = schedule.scraped_at;
   index.event_count = schedule.event_count;
 
@@ -365,6 +490,6 @@ async function main() {
 }
 
 main().catch(err => {
-  log(`Fatal error: ${err.message}`);
+  log(`Fatal error: ${(err as Error).message}`);
   process.exit(1);
 });

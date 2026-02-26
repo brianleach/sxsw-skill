@@ -92,19 +92,19 @@ The skill checks local data first for instant results, then supplements with web
 
 | Command | Description |
 |---------|-------------|
-| `sxsw.mjs events --date 2026-03-14` | Events on a specific date |
-| `sxsw.mjs events --track "AI"` | Filter by track/category |
-| `sxsw.mjs events --venue "JW Marriott"` | Filter by venue |
-| `sxsw.mjs events --format "keynote"` | Filter by format type |
-| `sxsw.mjs events --search "machine learning"` | Full-text search |
-| `sxsw.mjs events --search "climate" --verbose` | Search with descriptions |
-| `sxsw.mjs speakers --search "Amy Webb"` | Find speaker sessions |
-| `sxsw.mjs venues` | List all 195 venues |
-| `sxsw.mjs tracks` | List all tracks/categories |
-| `sxsw.mjs today` | Today's events |
-| `sxsw.mjs tomorrow` | Tomorrow's events |
-| `sxsw.mjs recommend` | Keynotes & featured sessions |
-| `sxsw.mjs info` | Dataset info & key dates |
+| `sxsw.ts events --date 2026-03-14` | Events on a specific date |
+| `sxsw.ts events --track "AI"` | Filter by track/category |
+| `sxsw.ts events --venue "JW Marriott"` | Filter by venue |
+| `sxsw.ts events --format "keynote"` | Filter by format type |
+| `sxsw.ts events --search "machine learning"` | Full-text search |
+| `sxsw.ts events --search "climate" --verbose` | Search with descriptions |
+| `sxsw.ts speakers --search "Amy Webb"` | Find speaker sessions |
+| `sxsw.ts venues` | List all 195 venues |
+| `sxsw.ts tracks` | List all tracks/categories |
+| `sxsw.ts today` | Today's events |
+| `sxsw.ts tomorrow` | Tomorrow's events |
+| `sxsw.ts recommend` | Keynotes & featured sessions |
+| `sxsw.ts info` | Dataset info & key dates |
 
 Filters can be combined. Add `--verbose` for descriptions and speaker details. Add `--limit N` to cap results.
 
