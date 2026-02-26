@@ -204,8 +204,7 @@ cd scraper && ./scrape.sh && cp output/*.json ../skill/data/
 | | |
 |---|---|
 | **Author** | Brian Leach |
-| **Email** | bleach@gmail.com |
-| **LinkedIn** | [linkedin.com/in/brianleach](https://linkedin.com/in/brian-leach-dev) |
+| **LinkedIn** | [linkedin.com/in/bleach](https://www.linkedin.com/in/bleach/) |
 | **License** | MIT |
 | **Source** | [github.com/brianleach/sxsw-skill](https://github.com/brianleach/sxsw-skill) |
 
