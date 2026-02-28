@@ -1,5 +1,5 @@
 ---
-name: sxsw-2026
+name: sxsw-skill
 description: SXSW 2026 schedule lookup, event search, speaker info, and recommendations for the March 12-18 conference and festivals in Austin, TX. Use when the user asks about SXSW events, sessions, music showcases, film screenings, speakers, venues, or schedule planning.
 homepage: "https://github.com/brianleach/sxsw-skill"
 license: MIT
