@@ -134,9 +134,9 @@ Since the user is likely in Austin during SXSW:
 
 | Endpoint | Data Sent | Data Received |
 |----------|-----------|---------------|
-| None | N/A | N/A |
+| Web search (agent-initiated) | Search query text | Search results for schedule changes, cancellations, breaking news |
 
-This skill reads only local JSON data files. No external network requests are made by the scripts. Web search is handled by the OpenClaw agent when needed.
+The skill scripts themselves make no network requests — they read only local JSON data files. However, the skill instructions direct the agent to use its built-in web search as a fallback when local data is insufficient (e.g., last-minute schedule changes, queries not found in the dataset).
 
 ## Security & Privacy
 
